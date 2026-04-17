@@ -59,9 +59,23 @@ def parse_frame(line):
 
 def open_serial(port_arg, baud):
     port = autodetect_port() if port_arg == 'auto' else port_arg
-    ser = serial.Serial(port, baud, timeout=0.2, rtscts=False, dsrdtr=False)
-    # Some USB CDC devices reset on DTR toggles; keep it low and stable.
+    # Build serial object without auto-opening so we can set control lines first.
+    ser = serial.Serial()
+    ser.port = port
+    ser.baudrate = baud
+    ser.timeout = 0.2
+    ser.rtscts = False
+    ser.dsrdtr = False
+    ser.xonxoff = False
+    # Keep control lines low to avoid unintended target resets on open/close.
     ser.dtr = False
+    ser.rts = False
+    # On Linux, request exclusive access to avoid contention with background probes.
+    try:
+        ser.exclusive = True
+    except Exception:
+        pass
+    ser.open()
     return port, ser
 
 
