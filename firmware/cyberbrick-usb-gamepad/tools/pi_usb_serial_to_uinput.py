@@ -7,7 +7,7 @@ import sys
 import time
 
 import serial
-from evdev import UInput, ecodes as e
+from evdev import AbsInfo, UInput, ecodes as e
 
 BUTTON_CODES = [
     e.BTN_SOUTH,   # B1
@@ -68,8 +68,8 @@ def main():
     caps = {
         e.EV_KEY: BUTTON_CODES,
         e.EV_ABS: [
-            (e.ABS_X, (-(32767), 32767, 0, 0)),
-            (e.ABS_Y, (-(32767), 32767, 0, 0)),
+            (e.ABS_X, AbsInfo(value=0, min=-32767, max=32767, fuzz=0, flat=0, resolution=0)),
+            (e.ABS_Y, AbsInfo(value=0, min=-32767, max=32767, fuzz=0, flat=0, resolution=0)),
         ],
     }
 

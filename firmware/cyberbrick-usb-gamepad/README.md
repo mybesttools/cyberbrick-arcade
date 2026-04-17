@@ -140,7 +140,7 @@ In EmulationStation:
 On the Raspberry Pi (RetroPie), clone or copy this project to a local folder, then:
 
 ```bash
-cd /home/pi/cyberbrick-usb-gamepad
+cd /home/admin/cyberbrick-usb-gamepad
 sudo apt update
 sudo apt install -y python3-evdev python3-serial joystick
 ```
@@ -148,7 +148,7 @@ sudo apt install -y python3-evdev python3-serial joystick
 Connect CyberBrick over USB and run bridge manually first:
 
 ```bash
-cd /home/pi/cyberbrick-usb-gamepad
+cd /home/admin/cyberbrick-usb-gamepad
 sudo python3 tools/pi_usb_serial_to_uinput.py --port auto
 ```
 
@@ -161,8 +161,8 @@ jstest /dev/input/js0
 If detection works, install persistent autostart service:
 
 ```bash
-cd /home/pi/cyberbrick-usb-gamepad
-sudo ./tools/install_retropie_bridge_service.sh pi /home/pi/cyberbrick-usb-gamepad auto
+cd /home/admin/cyberbrick-usb-gamepad
+sudo ./tools/install_retropie_bridge_service.sh admin /home/admin/cyberbrick-usb-gamepad auto
 ```
 
 Check service health:

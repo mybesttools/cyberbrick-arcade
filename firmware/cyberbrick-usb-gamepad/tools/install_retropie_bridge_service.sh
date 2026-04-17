@@ -5,10 +5,11 @@ set -euo pipefail
 # Usage:
 #   ./tools/install_retropie_bridge_service.sh [PI_USER] [PROJECT_DIR] [PORT]
 # Examples:
-#   ./tools/install_retropie_bridge_service.sh pi /home/pi/cyberbrick-usb-gamepad auto
-#   ./tools/install_retropie_bridge_service.sh pi /home/pi/cyberbrick-usb-gamepad /dev/ttyACM0
+#   ./tools/install_retropie_bridge_service.sh admin /home/admin/cyberbrick-usb-gamepad auto
+#   ./tools/install_retropie_bridge_service.sh admin /home/admin/cyberbrick-usb-gamepad /dev/ttyACM0
 
-PI_USER="${1:-pi}"
+DEFAULT_USER="${SUDO_USER:-${USER:-pi}}"
+PI_USER="${1:-${DEFAULT_USER}}"
 PROJECT_DIR="${2:-/home/${PI_USER}/cyberbrick-usb-gamepad}"
 PORT="${3:-auto}"
 
