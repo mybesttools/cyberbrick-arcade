@@ -1,175 +1,137 @@
-# CyberBrick Controller Firmware (PlatformIO)
+# CyberBrick Controller Firmware
 
-This project now defaults to wired USB for ESP32-C3 by using USB CDC serial reports and a Raspberry Pi uinput bridge.
+This project targets **ESP32-C3 BLE gamepad mode** by default.
 
-ESP32-C3 note: it does not support native USB HID gamepad device mode. The wired path here is:
+The board advertises as `CyberBrick Arcade` and pairs directly with RetroPie over Bluetooth.
 
-1. ESP32-C3 sends controller state over USB serial
-2. Raspberry Pi bridge script creates a virtual Linux gamepad via uinput
+It also includes an optional tiny OLED status display (SSD1306 I2C) showing:
+
+- boot status
+- advertising / connected state
+- live axis and button activity
+
+## BLE and USB support
+
+Yes, both are supported from the same codebase:
+
+- BLE gamepad mode on ESP32-C3 (`cyberbrick_esp32c3_ble`)
+- USB serial bridge mode on ESP32-C3 (`cyberbrick_esp32c3_usbserial`)
+
+Note: ESP32-C3 does not expose native USB HID gamepad device mode in this project.
+USB mode here is CDC serial output for a Pi-side bridge.
 
 ## Project layout
 
-- `src/main.cpp`: dual-mode firmware (USB serial bridge mode + optional BLE mode)
-- `include/pinmap.h`: joystick/button pins and calibration
-- `platformio.ini`: build and upload config
-- `tools/pi_usb_serial_to_uinput.py`: Pi bridge from serial to virtual gamepad
+- `src/main.cpp`: controller firmware (BLE + USB HID + serial bridge modes)
+- `include/pinmap.h`: joystick/button mapping and calibration
+- `platformio.ini`: PlatformIO build config
+- `tools/flash_our_firmware.sh`: upload helper for default ESP32-C3 BLE env
 
-## What it does
+## Wiring
 
-- Reads one analog joystick (`JOY_X_PIN`, `JOY_Y_PIN`)
-- Reads up to 10 digital buttons using `INPUT_PULLUP`
-- USB mode: sends controller frames over USB serial for Pi bridge
-- BLE mode: sends controller state as BLE gamepad
+Joystick:
 
-## Requirements
+- `JOY_X_PIN` = `A0`
+- `JOY_Y_PIN` = `A1`
 
-- VS Code + PlatformIO extension, or PlatformIO CLI
-- ESP32-C3 CyberBrick core board connected by USB
-- Raspberry Pi with `/dev/uinput` enabled
-- Pi packages: `python3-evdev` and `python3-serial`
+Buttons (active LOW, wire each button between GPIO pin and GND):
 
-## Configure pins
+- A = `2`
+- B = `3`
+- X = `4`
+- Y = `5`
+- L = `6`
+- R = `7`
+- START = `9`
+- SELECT = `10`
+- HOTKEY = `20`
+- COIN = `21`
 
-Edit `include/pinmap.h`:
+## Optional tiny OLED display
 
-- Set `JOY_X_PIN` / `JOY_Y_PIN`
-- Set each pin in `BUTTON_PINS[]`
-- Tune `JOY_CENTER_X`, `JOY_CENTER_Y`, and `JOY_DEADZONE`
+The BLE environment enables SSD1306 status output (`CYBERBRICK_STATUS_OLED`).
 
-## Build and upload (PlatformIO)
+Default config is in `include/pinmap.h`:
 
-Default environment is wired USB serial bridge mode.
+- `STATUS_DISPLAY_ENABLED = false`
+- `STATUS_OLED_I2C_ADDR = 0x3C`
+- `STATUS_OLED_WIDTH = 128`
+- `STATUS_OLED_HEIGHT = 64`
 
-Run inside this folder:
+Note: on tiny ESP32-C3 display boards, GPIO8/GPIO9 are commonly tied to I2C.
+The default button map avoids GPIO8 and keeps the OLED disabled unless you
+intentionally enable it.
 
-```bash
-pio run
-pio run -t upload
-pio device monitor
-```
+If your display has different dimensions or address, change those constants.
 
-If your board is not detected automatically, upload with an explicit port:
+## Setup — step by step
 
-```bash
-pio run -t upload --upload-port /dev/tty.usbmodemXXXX
-```
-
-## Backup prototype firmware first
-
-Before flashing this project onto a prototype board, dump the original firmware:
+### 1. Build and upload to ESP32-C3
 
 ```bash
-./tools/backup_prototype_firmware.sh /dev/tty.usbmodemXXXX 4MB
+cd firmware/cyberbrick-usb-gamepad
+pio run -e cyberbrick_esp32c3_ble
+pio run -e cyberbrick_esp32c3_ble -t upload
+
+# USB serial bridge firmware
+pio run -e cyberbrick_esp32c3_usbserial
+pio run -e cyberbrick_esp32c3_usbserial -t upload
 ```
 
-If you omit arguments, the script auto-detects a serial port and uses 4MB by default:
+If needed, upload with explicit port:
 
 ```bash
-./tools/backup_prototype_firmware.sh
+pio run -e cyberbrick_esp32c3_ble -t upload --upload-port /dev/tty.usbmodemXXXX
 ```
 
-Backups are stored in the local `backups/` folder as timestamped `.bin` files.
-
-## Flash our firmware
-
-```bash
-./tools/flash_our_firmware.sh /dev/tty.usbmodemXXXX
-```
-
-Or let PlatformIO auto-detect the port:
+Or use the helper script:
 
 ```bash
 ./tools/flash_our_firmware.sh
 ```
 
-## Restore original prototype firmware
+### 2. Pair with RetroPie
 
-If you need to restore the board to original state:
+In RetroPie Bluetooth settings:
 
-```bash
-pio pkg exec -p tool-esptoolpy -- esptool.py \
-  --chip esp32c3 \
-  --port /dev/tty.usbmodemXXXX \
-  --baud 460800 \
-  write_flash 0x0 backups/prototype-YYYYMMDD-HHMMSS.bin
-```
+1. Register and connect new Bluetooth device
+2. Select `CyberBrick Arcade`
 
-## Raspberry Pi USB bridge setup
+### 3. Configure in EmulationStation
 
-Install dependencies on Pi:
-
-```bash
-sudo apt update
-sudo apt install -y python3-evdev python3-serial joystick
-```
-
-Run the bridge script as root (required for `/dev/uinput`):
-
-```bash
-sudo python3 tools/pi_usb_serial_to_uinput.py --port /dev/ttyACM0
-```
-
-Then validate:
-
-```bash
-jstest /dev/input/js0
-```
-
-If joystick drifts, increase `JOY_DEADZONE` or adjust center values.
-
-## Optional BLE mode build
-
-If you want BLE later:
-
-```bash
-pio run -e cyberbrick_esp32c3_ble
-pio run -e cyberbrick_esp32c3_ble -t upload
-```
-
-## RetroPie mapping
-
-In EmulationStation:
+In RetroPie/EmulationStation:
 
 1. Hold any button to start controller setup.
 2. Map joystick directions and action buttons.
-3. Map Start/Select and Hotkey.
+3. Map Start / Select / Hotkey.
 4. Skip unused controls by holding a button.
 
-## RetroPie full setup
+## Verify on Pi (optional)
 
-On the Raspberry Pi (RetroPie), clone or copy this project to a local folder, then:
-
-```bash
-cd /home/admin/cyberbrick-usb-gamepad
-sudo apt update
-sudo apt install -y python3-evdev python3-serial joystick
-```
-
-Connect CyberBrick over USB and run bridge manually first:
+Install joystick tools to inspect Linux input events:
 
 ```bash
-cd /home/admin/cyberbrick-usb-gamepad
-sudo python3 tools/pi_usb_serial_to_uinput.py --port auto
+sudo apt install joystick
 ```
 
-In another terminal, validate Linux sees the virtual gamepad:
+Test:
 
 ```bash
 jstest /dev/input/js0
 ```
 
-If detection works, install persistent autostart service:
+## Tuning
 
-```bash
-cd /home/admin/cyberbrick-usb-gamepad
-sudo ./tools/install_retropie_bridge_service.sh admin /home/admin/cyberbrick-usb-gamepad auto
-```
+Edit `include/pinmap.h` and adjust:
 
-Check service health:
+- `JOY_CENTER_X`, `JOY_CENTER_Y`
+- `JOY_DEADZONE`
+- `JOY_MIN`, `JOY_MAX`
+- `BUTTON_PINS[]` order if you want a different button layout
 
-```bash
-sudo systemctl status cyberbrick-bridge.service
-sudo journalctl -u cyberbrick-bridge.service -f
-```
+## Alternate environments
 
-If your board always appears at a fixed port and you prefer explicit configuration, replace `auto` with `/dev/ttyACM0` in the installer command.
+- `cyberbrick_esp32c3_ble` (default)
+- `cyberbrick_esp32c3_usbserial` (USB CDC serial bridge mode on ESP32-C3)
+- `cyberbrick_rp2040_usbhid` (wired USB HID on Pico)
+- `cyberbrick_d1_dongle` (ESP8266 ESP-NOW dongle utility)

@@ -1,50 +1,66 @@
 #!/usr/bin/env python3
+"""
+ESP32-C3 USB Serial -> Linux uinput gamepad bridge for RetroPie.
+
+Reads lines from firmware in format:
+  R,<x>,<y>,<buttons_hex>
+
+Where:
+  x,y = signed int16 in range -32767..32767
+  buttons_hex = hex bitmask (bit 0 = A, bit 1 = B, ...)
+
+Usage:
+  sudo python3 tools/pi_usb_serial_to_uinput.py --port /dev/ttyACM0
+  sudo python3 tools/pi_usb_serial_to_uinput.py --port auto
+"""
+
 import argparse
 import glob
-import logging
-import signal
-import sys
-import time
-
 import serial
-from evdev import AbsInfo, UInput, ecodes as e
+from evdev import UInput, AbsInfo, ecodes as e
 
-BUTTON_CODES = [
-    e.BTN_SOUTH,   # B1
-    e.BTN_EAST,    # B2
-    e.BTN_WEST,    # B3
-    e.BTN_NORTH,   # B4
-    e.BTN_TL,      # L1
-    e.BTN_TR,      # R1
-    e.BTN_START,   # START
-    e.BTN_SELECT,  # SELECT
-    e.BTN_MODE,    # HOTKEY
-    e.BTN_THUMBL,  # COIN
+BUTTON_MAP = [
+    e.BTN_A,       # 0
+    e.BTN_B,       # 1
+    e.BTN_X,       # 2
+    e.BTN_Y,       # 3
+    e.BTN_TL,      # 4 (L)
+    e.BTN_TR,      # 5 (R)
+    e.BTN_START,   # 6
+    e.BTN_SELECT,  # 7
+    e.BTN_MODE,    # 8 (HOTKEY)
+    e.BTN_THUMBL,  # 9 (COIN)
 ]
 
-STOP = False
+
+def auto_port():
+    for pattern in ("/dev/ttyACM*", "/dev/ttyUSB*", "/dev/tty.usbmodem*"):
+        ports = sorted(glob.glob(pattern))
+        if ports:
+            return ports[0]
+    raise RuntimeError("No serial device found. Use --port explicitly.")
 
 
-def on_signal(_sig, _frame):
-    global STOP
-    STOP = True
+def make_device():
+    return UInput(
+        {
+            e.EV_ABS: [
+                (e.ABS_X, AbsInfo(0, -32767, 32767, 0, 0, 0)),
+                (e.ABS_Y, AbsInfo(0, -32767, 32767, 0, 0, 0)),
+            ],
+            e.EV_KEY: BUTTON_MAP,
+        },
+        name="BLE Everywhere USB Bridge",
+        version=0x1,
+    )
 
 
-def autodetect_port():
-    by_id_candidates = sorted(glob.glob('/dev/serial/by-id/*'))
-    if by_id_candidates:
-        return by_id_candidates[0]
+def parse_line(line):
+    if not line.startswith("R,"):
+        return None
 
-    candidates = sorted(glob.glob('/dev/ttyACM*') + glob.glob('/dev/ttyUSB*'))
-    if not candidates:
-        raise RuntimeError('No USB serial device found at /dev/serial/by-id/*, /dev/ttyACM*, or /dev/ttyUSB*')
-    return candidates[0]
-
-
-def parse_frame(line):
-    # Frame format from firmware: R,<x>,<y>,<buttons_hex>
-    parts = line.strip().split(',')
-    if len(parts) != 4 or parts[0] != 'R':
+    parts = line.strip().split(",")
+    if len(parts) != 4:
         return None
 
     try:
@@ -54,114 +70,50 @@ def parse_frame(line):
     except ValueError:
         return None
 
+    x = max(-32767, min(32767, x))
+    y = max(-32767, min(32767, y))
     return x, y, buttons
 
 
-def open_serial(port_arg, baud):
-    port = autodetect_port() if port_arg == 'auto' else port_arg
-    # Build serial object without auto-opening so we can set control lines first.
-    ser = serial.Serial()
-    ser.port = port
-    ser.baudrate = baud
-    ser.timeout = 0.2
-    ser.rtscts = False
-    ser.dsrdtr = False
-    ser.xonxoff = False
-    # Keep control lines low to avoid unintended target resets on open/close.
-    ser.dtr = False
-    ser.rts = False
-    # On Linux, request exclusive access to avoid contention with background probes.
-    try:
-        ser.exclusive = True
-    except Exception:
-        pass
-    ser.open()
-    return port, ser
-
-
 def main():
-    parser = argparse.ArgumentParser(description='Bridge CyberBrick ESP32-C3 USB serial to Linux virtual gamepad')
-    parser.add_argument('--port', default='auto', help='Serial port, e.g. /dev/ttyACM0 (default: auto)')
-    parser.add_argument('--baud', type=int, default=115200, help='Serial baud rate')
-    parser.add_argument('--name', default='CyberBrick USB Bridge Gamepad', help='Virtual gamepad name')
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", default="auto")
+    parser.add_argument("--baud", type=int, default=115200)
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+    port = auto_port() if args.port == "auto" else args.port
+    print(f"Using serial port: {port}")
 
-    caps = {
-        e.EV_KEY: BUTTON_CODES,
-        e.EV_ABS: [
-            (e.ABS_X, AbsInfo(value=0, min=-32767, max=32767, fuzz=0, flat=0, resolution=0)),
-            (e.ABS_Y, AbsInfo(value=0, min=-32767, max=32767, fuzz=0, flat=0, resolution=0)),
-        ],
-    }
+    ui = make_device()
+    print("uinput gamepad created: BLE Everywhere USB Bridge")
 
-    ui = UInput(caps, name=args.name, version=0x0001)
-    ser = None
+    last_buttons = 0
 
-    signal.signal(signal.SIGINT, on_signal)
-    signal.signal(signal.SIGTERM, on_signal)
-
-    logging.info('Virtual gamepad created and bridge started')
-
-    try:
-        while not STOP:
-            if ser is None:
-                try:
-                    port, ser = open_serial(args.port, args.baud)
-                    logging.info('Using serial port: %s', port)
-
-                    # Ignore initial banner lines and settle connection.
-                    start = time.time()
-                    while time.time() - start < 1.0:
-                        ser.readline()
-                except Exception as exc:
-                    logging.warning('Serial open failed, retrying in 1s: %s', exc)
-                    time.sleep(1.0)
-                    continue
-
-            try:
-                raw = ser.readline()
-            except serial.SerialException as exc:
-                logging.warning('Serial read failed, reconnecting: %s', exc)
-                try:
-                    ser.close()
-                except Exception:
-                    pass
-                ser = None
-                time.sleep(0.5)
-                continue
-
+    with serial.Serial(port, args.baud, timeout=0.2) as ser:
+        while True:
+            raw = ser.readline()
             if not raw:
                 continue
 
-            try:
-                line = raw.decode('utf-8', errors='ignore')
-            except Exception:
+            line = raw.decode("utf-8", errors="ignore")
+            parsed = parse_line(line)
+            if parsed is None:
                 continue
 
-            frame = parse_frame(line)
-            if frame is None:
-                continue
+            x, y, buttons = parsed
 
-            x, y, buttons = frame
             ui.write(e.EV_ABS, e.ABS_X, x)
             ui.write(e.EV_ABS, e.ABS_Y, y)
 
-            for i, code in enumerate(BUTTON_CODES):
-                pressed = 1 if (buttons & (1 << i)) else 0
-                ui.write(e.EV_KEY, code, pressed)
+            changed = buttons ^ last_buttons
+            for bit, key in enumerate(BUTTON_MAP):
+                if changed & (1 << bit):
+                    pressed = 1 if (buttons & (1 << bit)) else 0
+                    ui.write(e.EV_KEY, key, pressed)
 
             ui.syn()
-    finally:
-        if ser is not None:
-            ser.close()
-        ui.close()
+            last_buttons = buttons
 
 
-if __name__ == '__main__':
-    try:
-        main()
-    except Exception as exc:
-        print(f'bridge error: {exc}', file=sys.stderr)
-        sys.exit(1)
+if __name__ == "__main__":
+    main()
