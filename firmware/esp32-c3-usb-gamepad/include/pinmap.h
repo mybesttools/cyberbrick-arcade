@@ -46,25 +46,30 @@ static const uint8_t BUTTON_PINS[] = {};
 static const size_t  BUTTON_COUNT  = 0;
 
 // MCP23017 bit positions for each button (Port A bits 0-7, Port B bits 8-15), active LOW.
-// Board right-side labels: rows B0/A0 … B7/A7.  Use the Ax pin for Port A, Bx for Port B.
-// Button index in the array = button number sent in the BLE report.
+// Each entry is the MCP bit number for that button index in the BLE report.
+// Actual physical wiring:
+//   GPA0 = D-pad Up      GPA1 = D-pad Left    GPA2 = D-pad Right   GPA3 = D-pad Down
+//   GPA4 = L shoulder    GPA5 = R shoulder    GPA6 = Start         GPA7 = Select
+//   GPB0 = Hotkey        GPB1 = Coin
+//   GPB2 = R3 (right JS click)               GPB3 = L3 (left JS click)
+//   GPB4 = A/Cross(✕)    GPB5 = Y/Triangle(△) GPB6 = B/Circle(○)   GPB7 = X/Square(□)
 static const uint8_t MCP_BUTTON_BITS[] = {
-  0,   // A         board pin A0  (Port A bit 0)
-  1,   // B         board pin A1  (Port A bit 1)
-  2,   // X         board pin A2  (Port A bit 2)
-  3,   // Y         board pin A3  (Port A bit 3)
-  4,   // L         board pin A4  (Port A bit 4)
-  5,   // R         board pin A5  (Port A bit 5)
-  6,   // START     board pin A6  (Port A bit 6)
-  7,   // SELECT    board pin A7  (Port A bit 7)
-  8,   // HOTKEY    board pin B0  (Port B bit 0)
-  9,   // COIN      board pin B1  (Port B bit 1)
-  10,  // spare     board pin B2  (Port B bit 2, formerly L3)
-  11,  // spare     board pin B3  (Port B bit 3, formerly R3)
-  12,  // D-UP      board pin B4  (Port B bit 4)
-  13,  // D-DOWN    board pin B5  (Port B bit 5)
-  14,  // D-LEFT    board pin B6  (Port B bit 6)
-  15,  // D-RIGHT   board pin B7  (Port B bit 7)
+  12,  // A (✕)       GPB4 — Button Down, right side
+  14,  // B (○)       GPB6 — Button Right, right side
+  15,  // X (□)       GPB7 — Button Left, right side
+  13,  // Y (△)       GPB5 — Button Up, right side
+  4,   // L shoulder  GPA4
+  5,   // R shoulder  GPA5
+  6,   // Start       GPA6
+  7,   // Select      GPA7
+  8,   // Hotkey      GPB0
+  9,   // Coin        GPB1
+  11,  // L3          GPB3 — left joystick click
+  10,  // R3          GPB2 — right joystick click
+  0,   // D-pad Up    GPA0
+  3,   // D-pad Down  GPA3
+  1,   // D-pad Left  GPA1
+  2,   // D-pad Right GPA2
 };
 static const size_t MCP_BUTTON_COUNT  = sizeof(MCP_BUTTON_BITS) / sizeof(MCP_BUTTON_BITS[0]);
 static const size_t TOTAL_BUTTON_COUNT = MCP_BUTTON_COUNT;

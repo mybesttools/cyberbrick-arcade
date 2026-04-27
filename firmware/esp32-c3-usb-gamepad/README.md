@@ -95,24 +95,24 @@ The MCP23017 connects over I2C with A0/A1/A2 address pins all tied to GND
 **MCP23017 button mapping** (active LOW — wire each button between the
 MCP pin and GND; internal pull-ups are enabled by firmware):
 
-| Button    | MCP port | MCP bit | Board label |
-|-----------|----------|---------|-------------|
-| A (✕)     | GPA      | 0       | A0          |
-| B (○)     | GPA      | 1       | A1          |
-| X (□)     | GPA      | 2       | A2          |
-| Y (△)     | GPA      | 3       | A3          |
-| L shoulder| GPA      | 4       | A4          |
-| R shoulder| GPA      | 5       | A5          |
-| Start     | GPA      | 6       | A6          |
-| Select    | GPA      | 7       | A7          |
-| Hotkey    | GPB      | 0       | B0          |
-| Coin      | GPB      | 1       | B1          |
-| *(spare)* | GPB      | 2       | B2          |
-| *(spare)* | GPB      | 3       | B3          |
-| D-pad Up  | GPB      | 4       | B4          |
-| D-pad Down| GPB      | 5       | B5          |
-| D-pad Left| GPB      | 6       | B6          |
-| D-pad Right| GPB     | 7       | B7          |
+| MCP pin | Board label | Button | Notes |
+|---------|-------------|--------|-------|
+| GPA0    | A0          | D-pad Up    | ✓ wired |
+| GPA1    | A1          | D-pad Left  | ✓ wired |
+| GPA2    | A2          | D-pad Right | ✓ wired |
+| GPA3    | A3          | D-pad Down  | ✓ wired |
+| GPA4    | A4          | L shoulder  | wire here |
+| GPA5    | A5          | R shoulder  | wire here |
+| GPA6    | A6          | Start       | wire here |
+| GPA7    | A7          | Select      | wire here |
+| GPB0    | B0          | Hotkey      | wire here |
+| GPB1    | B1          | Coin        | wire here |
+| GPB2    | B2          | R3 (right joystick click) | ✓ wired |
+| GPB3    | B3          | L3 (left joystick click)  | ✓ wired |
+| GPB4    | B4          | A / Cross ✕   (Down)  | ✓ wired |
+| GPB5    | B5          | Y / Triangle △ (Up)   | ✓ wired |
+| GPB6    | B6          | B / Circle ○  (Right) | ✓ wired |
+| GPB7    | B7          | X / Square □  (Left)  | ✓ wired |
 
 ## Optional tiny OLED display
 
