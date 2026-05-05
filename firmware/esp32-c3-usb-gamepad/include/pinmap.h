@@ -22,12 +22,12 @@ static const uint8_t MCP23017_I2C_ADDR = 0x20; // A0/A1/A2 all tied to GND
 static const uint8_t JOY_X_PIN = A0;  // GPIO0
 static const uint8_t JOY_Y_PIN = A1;  // GPIO1
 static const bool    JOY_INVERT_X = true;
-static const bool    JOY_INVERT_Y = false;
+static const bool    JOY_INVERT_Y = true;
 
 // Right joystick (BLE Rx/Ry axes).
 static const uint8_t JOY2_X_PIN = A2; // GPIO2
 static const uint8_t JOY2_Y_PIN = A3; // GPIO3
-static const bool    JOY2_INVERT_X = true;
+static const bool    JOY2_INVERT_X = false;
 static const bool    JOY2_INVERT_Y = false;
 
 // Calibration — adjust after first test run.

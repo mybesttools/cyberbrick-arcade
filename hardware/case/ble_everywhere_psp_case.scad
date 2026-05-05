@@ -66,32 +66,49 @@ tiny_status_x = 0;
 tiny_status_y = 49;
 
 joystick_d = 24;
-joystick_x_base = 82;
-btn_cluster_x_base = 82;
 
-// Fixed layout for current preview orientation: joystick LEFT, ABXY RIGHT.
-joystick_x = abs(joystick_x_base);
-joystick_y = -8;
+// Config A — dual joystick + D-pad layout (MCP23017 expander).
+// Left side  : left joystick (lower) + D-pad (upper).
+// Right side : right joystick (lower) + ABXY cluster (upper).
+left_joy_x  = -82;
+left_joy_y  = -20;
 
+right_joy_x =  82;
+right_joy_y = -20;
+
+// D-pad (left side, upper)
+dpad_x       = -82;
+dpad_y       =  20;
+dpad_arm_w   =   9.5;  // width of each arm
+dpad_arm_l   =  30;    // full span of cross in one axis
+dpad_corner_r =   1.5;
+
+// ABXY cluster (right side, upper)
 btn_d = 10;
 btn_pitch = 12.5;
-btn_cluster_x = -abs(btn_cluster_x_base);
-btn_cluster_y = -2;
+btn_cluster_x =  82;
+btn_cluster_y =   8;
 
-echo(str("JOYSTICK_X=", joystick_x, " BTN_CLUSTER_X=", btn_cluster_x));
+// L / R shoulder buttons (top edge, back shell)
+shoulder_w      = 22;    // slot width
+shoulder_h      =  4.5;  // slot height (into top wall)
+shoulder_z      =  6;    // Z position along top edge
+shoulder_inset  = 40;    // inset from left / right case edge
+
+echo(str("LEFT_JOY_X=", left_joy_x, " RIGHT_JOY_X=", right_joy_x, " DPAD_X=", dpad_x));
 
 start_d = 8;
 start_x = -10;
-start_y = -27;
+start_y = -38;
 select_x = 10;
-select_y = -27;
+select_y = -38;
 
 hotkey_d = 8;
-hotkey_x = -25;
-hotkey_y = -27;
+hotkey_x = -26;
+hotkey_y = -38;
 coin_d = 8;
-coin_x = 25;
-coin_y = -27;
+coin_x = 26;
+coin_y = -38;
 
 // USB-C cutout (top edge)
 usb_w = 10;
@@ -138,7 +155,11 @@ module rounded_box(w, h, d, r) {
 }
 
 module dpad_cutouts() {
-  // Optional D-pad style cross if you want it later.
+  // Plus / cross shape: two overlapping rounded rectangles.
+  translate([dpad_x, dpad_y]) {
+    rounded_rect_2d(dpad_arm_l, dpad_arm_w, dpad_corner_r);  // horizontal arm
+    rounded_rect_2d(dpad_arm_w, dpad_arm_l, dpad_corner_r);  // vertical arm
+  }
 }
 
 module button_cluster_4(x, y, d, p) {
@@ -161,8 +182,14 @@ module front_cutout_2d() {
       translate([tiny_status_x, tiny_status_y])
         rounded_rect_2d(tiny_status_w, tiny_status_h, 1.5);
 
-    // Joystick hole
-    translate([joystick_x, joystick_y]) circle(d=joystick_d);
+    // Left joystick
+    translate([left_joy_x, left_joy_y]) circle(d=joystick_d);
+
+    // Right joystick
+    translate([right_joy_x, right_joy_y]) circle(d=joystick_d);
+
+    // D-pad
+    dpad_cutouts();
 
     // ABXY cluster
     button_cluster_4(btn_cluster_x, btn_cluster_y, btn_d, btn_pitch);
@@ -296,6 +323,18 @@ module back_shell() {
     // USB-C top-edge cutout (centered)
     translate([-usb_w/2, case_h/2 - wall - 0.2, usb_z])
       cube([usb_w, wall + 1.0, usb_h]);
+
+    // L shoulder button (top edge, left)
+    translate([-(case_w/2 - shoulder_inset) - shoulder_w/2,
+               case_h/2 - wall - 0.2,
+               shoulder_z])
+      cube([shoulder_w, wall + 1.0, shoulder_h]);
+
+    // R shoulder button (top edge, right)
+    translate([(case_w/2 - shoulder_inset) - shoulder_w/2,
+               case_h/2 - wall - 0.2,
+               shoulder_z])
+      cube([shoulder_w, wall + 1.0, shoulder_h]);
   }
 }
 

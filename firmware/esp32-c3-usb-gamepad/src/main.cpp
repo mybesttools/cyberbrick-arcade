@@ -35,7 +35,6 @@ int16_t mapAxis(int raw, int minV, int centerV, int maxV, int deadzone);
 uint32_t readButtons();
 void initMcp23017();
 uint16_t readMcp23017Inputs();
-static uint8_t axesToHat(int16_t x, int16_t y);
 
 static void blinkLed(uint8_t pulses, uint16_t onMs, uint16_t offMs)
 {
@@ -335,15 +334,27 @@ static void statusDrawAdvertising()
   char line3[24];
   snprintf(line3, sizeof(line3), "WAIT HOST%s", dots);
 
+#if defined(CONTROLLER_MODE_USB_SERIAL)
+  const char *title = "USB Serial";
+  const char *subtitle = "WAIT HOST";
+#else
+  const char *title = "BLE Everywhere";
+  const char *subtitle = "ADVERTISING";
+#endif
+
   U8G2 &disp = statusUseSh1106() ? (U8G2 &)statusDisplaySh1106 : (U8G2 &)statusDisplaySsd;
   disp.clearBuffer();
   disp.setFont(u8g2_font_5x7_tr);
   disp.drawFrame(0, 0, STATUS_VISIBLE_WIDTH, STATUS_VISIBLE_HEIGHT);
-  disp.drawStr(0, 8, "BLE Everywhere");
-  disp.drawStr(0, 16, "ADVERTISING");
+  disp.drawStr(0, 8, title);
+  disp.drawStr(0, 16, subtitle);
   disp.drawStr(0, 24, line3);
+#if defined(CONTROLLER_MODE_USB_SERIAL)
+  disp.drawStr(0, 32, "CONNECT USB");
+#else
   disp.drawStr(0, 32, "PAIR NOW");
-  disp.drawStr(0, 40, "BLE Everywhere");
+  disp.drawStr(0, 40, title);
+#endif
   disp.sendBuffer();
 }
 
@@ -362,8 +373,8 @@ static void statusDrawConnected(int16_t x, int16_t y, uint8_t hat, uint32_t butt
 
 #if defined(USE_MCP23017_EXPANDER)
   // Right stick — centered at (63, 20), drives Rx/Ry axes.
-  // Negate X for display since JOY2_INVERT_X is already applied to statusRx.
-  drawStick(disp, 63, 20, JOY2_INVERT_X ? -statusRx : statusRx, JOY2_INVERT_Y ? -statusRy : statusRy);
+  // statusRx/Ry already have inversions applied when stored.
+  drawStick(disp, 63, 20, statusRx, statusRy);
 #endif
 
   // Middle area (x 18..53): show lowest pressed button index, or "---".
@@ -533,12 +544,18 @@ static void readControllerState(int16_t &x, int16_t &y, uint32_t &buttons)
 }
 #endif
 
-#if defined(CONTROLLER_MODE_BLE)
-#include <BleGamepad.h>
-BleGamepadConfiguration bleGamepadConfig;
-BleGamepad bleGamepad("BLE Everywhere Controller", "BLE Everywhere", 100);
-
 // Convert signed joystick axes to an 8-way hat direction.
+#ifndef HAT_CENTERED
+#define HAT_CENTERED  0
+#define HAT_UP        1
+#define HAT_UP_RIGHT  2
+#define HAT_RIGHT     3
+#define HAT_DOWN_RIGHT 4
+#define HAT_DOWN      5
+#define HAT_DOWN_LEFT 6
+#define HAT_LEFT      7
+#define HAT_UP_LEFT   8
+#endif
 static uint8_t axesToHat(int16_t x, int16_t y)
 {
   bool up    = (y >  HAT_THRESHOLD);
@@ -556,6 +573,12 @@ static uint8_t axesToHat(int16_t x, int16_t y)
   if (left)          return HAT_LEFT;
   return HAT_CENTERED;
 }
+
+#if defined(CONTROLLER_MODE_BLE)
+#include <BleGamepad.h>
+BleGamepadConfiguration bleGamepadConfig;
+BleGamepad bleGamepad("BLE Everywhere Controller", "BLE Everywhere", 100);
+
 #elif defined(CONTROLLER_MODE_USB_HID)
 #include <Adafruit_TinyUSB.h>
 
@@ -910,19 +933,36 @@ void loop()
   int16_t y = 0;
   uint32_t buttons = 0;
   readControllerState(x, y, buttons);
-  uint8_t hat = axesToHat(JOY_INVERT_X ? -x : x, JOY_INVERT_Y ? -y : y);
+  int16_t serialX = JOY_INVERT_X ? -x : x;
+  int16_t serialY = JOY_INVERT_Y ? -y : y;
+  uint8_t hat = axesToHat(serialX, serialY);
+#if defined(USE_MCP23017_EXPANDER)
+  int16_t rx = mapAxis(analogRead(JOY2_X_PIN), JOY_MIN, JOY2_CENTER_X, JOY_MAX, JOY_DEADZONE);
+  int16_t ry = mapAxis(analogRead(JOY2_Y_PIN), JOY_MIN, JOY2_CENTER_Y, JOY_MAX, JOY_DEADZONE);
+  if (JOY2_INVERT_X) rx = -rx;
+  if (JOY2_INVERT_Y) ry = -ry;
+#else
+  int16_t rx = 0;
+  int16_t ry = 0;
+#endif
+  statusRx = rx;
+  statusRy = ry;
 
 #if defined(ESP32C3_STATUS_OLED)
-  statusUpdate(serialHostReady, x, y, hat, buttons);
+  statusUpdate(serialHostReady, serialX, serialY, hat, buttons);
 #endif
 
-  // CSV frame for Pi bridge: R,<x>,<y>,<buttons_hex>
+  // CSV frame for Pi bridge: R,<x>,<y>,<buttons_hex>,<rx>,<ry>
   Serial.print("R,");
-  Serial.print(x);
+  Serial.print(serialX);
   Serial.print(',');
-  Serial.print(y);
+  Serial.print(serialY);
   Serial.print(',');
-  Serial.println(buttons, HEX);
+  Serial.print(buttons, HEX);
+  Serial.print(',');
+  Serial.print(rx);
+  Serial.print(',');
+  Serial.println(ry);
 #endif
 
   delay(1);

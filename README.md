@@ -201,6 +201,103 @@ Test:
 jstest /dev/input/js0
 ```
 
+## Raspberry Pi OS and RetroPie setup
+
+### Recommended OS: Raspberry Pi OS Lite (32-bit)
+
+RetroPie runs its own EmulationStation frontend and does not need a desktop environment.
+Lite keeps the install lean and leaves more RAM and CPU for emulation.
+
+### 1. Flash the SD card
+
+Use [Raspberry Pi Imager](https://www.raspberrypi.com/software/) on your Mac:
+
+1. Choose **Raspberry Pi OS (other) → Raspberry Pi OS Lite (32-bit)**
+2. Open the settings panel (gear icon) and configure:
+   - Hostname (e.g. `retropie`)
+   - Username and password
+   - Wi-Fi SSID and password
+   - **Enable SSH**
+3. Flash to your SD card
+
+> SSH is disabled by default on Raspberry Pi OS. Enabling it in Imager before flashing means you can connect headlessly from the first boot.
+
+### 2. Install RetroPie
+
+SSH in, then run:
+
+```bash
+sudo locale-gen en_US.UTF-8
+sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+sudo apt-get update && sudo apt-get upgrade -y
+sudo apt-get install -y git
+git clone --depth=1 https://github.com/RetroPie/RetroPie-Setup.git
+cd RetroPie-Setup
+sudo ./retropie_setup.sh
+```
+
+Choose **Basic Install** from the menu. Takes 30–60 minutes on a Pi 3 or 4.
+
+---
+
+## USB serial bridge — install and run from GitHub
+
+On the Raspberry Pi, clone the repo, install the dependencies, and run the bridge script:
+
+```bash
+git clone https://github.com/mybesttools/esp32-c3-arcade.git
+cd esp32-c3-arcade
+sudo apt-get update
+sudo apt install -y python3-serial python3-evdev
+sudo python3 firmware/esp32-c3-usb-gamepad/tools/pi_usb_serial_to_uinput.py --port auto
+```
+
+To target a specific port instead:
+
+```bash
+sudo python3 firmware/esp32-c3-usb-gamepad/tools/pi_usb_serial_to_uinput.py --port /dev/ttyACM0
+```
+
+The script requires `sudo` to create a uinput virtual gamepad device.
+
+### Install as a systemd service
+
+This runs the bridge automatically on boot. Assumes the repo was cloned to `/home/admin/esp32-c3-arcade`.
+
+Create the service file:
+
+```bash
+sudo tee /etc/systemd/system/esp32-gamepad-bridge.service > /dev/null << 'EOF'
+[Unit]
+Description=ESP32-C3 USB serial gamepad bridge
+After=local-fs.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/admin/esp32-c3-arcade/firmware/esp32-c3-usb-gamepad/tools/pi_usb_serial_to_uinput.py --port auto
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+Enable and start it:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable esp32-gamepad-bridge
+sudo systemctl start esp32-gamepad-bridge
+```
+
+Check status:
+
+```bash
+sudo systemctl status esp32-gamepad-bridge
+```
+
+> If you cloned the repo to a different path, update `ExecStart` accordingly.
+
 ## Tuning
 
 Edit `include/pinmap.h` and adjust:
