@@ -190,36 +190,40 @@ def header_2xN(ref, label, x0, y0, n_pairs, net_list, pitch=2.54):
 
 # ── 1x8 pin socket (female) ───────────────────────────────────────────────────
 def socket_1x8(ref, label, x0, y0, net_list):
+    """8-pin socket, pins laid out horizontally left→right. x0,y0 = pin 1 position."""
     emit(f'  (footprint "Connector_PinSocket_2.54mm:PinSocket_1x08_P2.54mm_Vertical"')
-    emit(f'    (layer "F.Cu") (at {x0} {y0}) (uuid "{uid()}")')
-    fp_ref(ref, 0, -3)
-    fp_val(label, 0, 22)
+    emit(f'    (layer "F.Cu") (at {x0} {y0}) (angle 90) (uuid "{uid()}")')
+    fp_ref(ref, 9, -3)
+    fp_val(label, 9, 3)
     for i, net_name in enumerate(net_list):
-        py = i * 2.54
+        px = i * 2.54
         if net_name:
-            thru_pad(str(i+1), net_name, 0, py)
+            thru_pad(str(i+1), net_name, px, 0)
         else:
-            emit(f'    (pad "{i+1}" thru_hole circle (at 0 {py}) (size 1.6 1.6)')
+            emit(f'    (pad "{i+1}" thru_hole circle (at {px} 0) (size 1.6 1.6)')
             emit(f'      (drill 0.8) (layers "*.Cu" "*.Mask"))')
     emit('  )')
 
 # ── ESP32-C3 OLED socket ──────────────────────────────────────────────────────
-ESP32_CX = 35.0
-ESP32_CY = 25.0
-ROW_SEP  = 15.24   # 600mil — verify against your actual module before ordering
+# Module pin 1 = left side (USB-C end)
+# Top row at y = CY - ROW_SEP/2, bottom row at y = CY + ROW_SEP/2
+# 8 pins * 2.54mm = 19.32mm wide
+ESP32_PIN1_X = 12.0   # X of pin 1 on both rows
+ESP32_CY     = 28.0   # Y centre of module
+ROW_SEP      = 15.24  # 600mil row separation — VERIFY against physical module!
 
 def esp32_socket():
-    # Top row T1-T8 (left → right): IO8 IO9 IO8 IO7 IO6=SCL IO5=SDA IO4 IO3=ADC_RY
+    # Top row T1-T8: IO8 IO9 IO8 IO7 IO6=SCL IO5=SDA IO4 IO3=ADC_RY
     top_nets = ["", "", "", "", "I2C_SCL", "I2C_SDA", "", "ADC_RY"]
     socket_1x8("U1A", "ESP32-C3 top",
-                ESP32_CX - 3.5 * 2.54,
+                ESP32_PIN1_X,
                 ESP32_CY - ROW_SEP / 2,
                 top_nets)
 
     # Bottom row B1-B8: V5 GND VCC RX TX IO2=ADC_RX IO1=ADC_LY IO0=ADC_LX
     bot_nets = ["", "GND", "VCC", "", "", "ADC_RX", "ADC_LY", "ADC_LX"]
     socket_1x8("U1B", "ESP32-C3 bot",
-                ESP32_CX - 3.5 * 2.54,
+                ESP32_PIN1_X,
                 ESP32_CY + ROW_SEP / 2,
                 bot_nets)
 
