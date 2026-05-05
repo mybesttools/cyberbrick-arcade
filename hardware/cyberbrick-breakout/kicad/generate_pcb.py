@@ -61,15 +61,26 @@ def header():
     emit('  )')
     emit('  (layers')
     for spec in [
-        '(0 "F.Cu" signal)', '(31 "B.Cu" signal)',
-        '(32 "B.Adhes" user "B.Adhesive")', '(33 "F.Adhes" user "F.Adhesive")',
-        '(34 "B.Paste" user)', '(35 "F.Paste" user)',
-        '(36 "B.SilkS" user "B.Silkscreen")', '(37 "F.SilkS" user "F.Silkscreen")',
-        '(38 "B.Mask" user)', '(39 "F.Mask" user)',
+        '(0 "F.Cu" signal)',
+        '(31 "B.Cu" signal)',
+        '(32 "B.Adhes" user "B.Adhesive")',
+        '(33 "F.Adhes" user "F.Adhesive")',
+        '(34 "B.Paste" user)',
+        '(35 "F.Paste" user)',
+        '(36 "B.SilkS" user "B.Silkscreen")',
+        '(37 "F.SilkS" user "F.Silkscreen")',
+        '(38 "B.Mask" user)',
+        '(39 "F.Mask" user)',
         '(40 "Dwgs.User" user "User.Drawings")',
+        '(41 "Cmts.User" user "User.Comments")',
+        '(42 "Eco1.User" user "User.Eco1")',
+        '(43 "Eco2.User" user "User.Eco2")',
         '(44 "Edge.Cuts" user)',
-        '(49 "F.Courtyard" user)', '(50 "B.Courtyard" user)',
-        '(51 "F.Fab" user)', '(52 "B.Fab" user)',
+        '(45 "Margin" user)',
+        '(46 "B.CrtYd" user "B.Courtyard")',
+        '(47 "F.CrtYd" user "F.Courtyard")',
+        '(48 "B.Fab" user "B.Fabrication")',
+        '(49 "F.Fab" user "F.Fabrication")',
     ]:
         emit(f'    {spec}')
     emit('  )')
